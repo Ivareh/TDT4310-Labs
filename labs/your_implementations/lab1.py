@@ -1,7 +1,9 @@
 import re
 from typing import List
 
-import nltk
+from nltk.corpus.reader.plaintext import PlaintextCorpusReader
+from nltk import *
+import nltk.collocations
 from lab_utils import LabPredictor
 
 # pylint: disable=pointless-string-statement
@@ -20,7 +22,7 @@ You should complete the code for the classes:
 - Lab1 (the main logic for parsing input and handling models)
 """
 
-class NgramModel:
+class NgramModel():
     """ The main class for all n-gram models
 
     Here you will create your model (based on N)
@@ -36,7 +38,7 @@ class NgramModel:
         self.n_gram = n_gram
         self.words_to_return = 4  # how many words to show in the UI
 
-        self.model = None  # TODO: implement the model using built-in NLTK methods
+        self.model = BigramModel  # TODO: implement the model using built-in NLTK methods
         # take a look at the nltk.collocations module
         # https://www.nltk.org/howto/collocations.html
 
@@ -54,6 +56,7 @@ class NgramModel:
         # we're only interested in the last word to predict the next
         n_tokens = tokens[-(self.n_gram - 1):]
 
+        
         probabilities = [] # TODO: find the probabilities for the next word(s)
         
         # TODO: apply some filtering to only select the words
@@ -67,12 +70,21 @@ class NgramModel:
 
 
 class BigramModel(NgramModel):
-    def __init__(self) -> None:
+    def __init__(self, corpus) -> None:
         super().__init__(n_gram=2)
+        self.words = corpus.words("chesterton-brown.txt")
+    
+    def preprocess(self) -> List[str]:
+        finder = BigramCollocationFinder.from_words(self.words)
+        bigram_measures = nltk.collocations.BigramAssocMeasures() # Measures unusual frequent bigram associations
+        finder.apply_freq_filter(7) # Add to get the most frequent expressions
+        finder.nbest(bigram_measures.pmi, 20) 
+        print(bigram_measures)
+
     
 
 class TrigramModel(NgramModel):
-    def __init__(self) -> None:
+    def __init__(self, corpus) -> None:
         super().__init__(n_gram=3)
 
 
@@ -125,5 +137,7 @@ class Lab1(LabPredictor):
         """ train or load the models
         add parameters as you like, such as the corpora you selected.
         """
-        self.model = TrigramModel(self.predict(self.corpora))  # TODO: add needed parameters
+        print("Training models...")
+        self.predict(self.corpora.words("chesterton-brown.txt"))
+        self.model = TrigramModel(self.corpora)  # TODO: add needed parameters
         self.backoff_model = BigramModel(self.corpora)  # TODO: add needed parameters
