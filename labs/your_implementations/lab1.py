@@ -2,6 +2,10 @@ import re
 from typing import List
 
 from nltk.corpus.reader.plaintext import PlaintextCorpusReader
+from nltk.text import TextCollection
+
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+import pandas as pd
 from nltk import *
 import nltk.collocations
 from lab_utils import LabPredictor
@@ -57,8 +61,12 @@ class NgramModel():
         n_tokens = tokens[-(self.n_gram - 1):]
 
         
+
         probabilities = [] # TODO: find the probabilities for the next word(s)
         
+
+            
+
         # TODO: apply some filtering to only select the words
         # here you're free to select your filtering methods
         # a simple approach is to simply sort them by probability
@@ -72,15 +80,23 @@ class NgramModel():
 class BigramModel(NgramModel):
     def __init__(self, corpus) -> None:
         super().__init__(n_gram=2)
-        self.words = corpus.words("chesterton-brown.txt")
+        self.sents = corpus.sents("chesterton-brown.txt")
     
-    def preprocess(self) -> List[str]:
-        finder = BigramCollocationFinder.from_words(self.words)
+    def collocations(self):
+        finder = BigramCollocationFinder.from_words(
+            self.words)
         bigram_measures = nltk.collocations.BigramAssocMeasures() # Measures unusual frequent bigram associations
         finder.apply_freq_filter(7) # Add to get the most frequent expressions
-        finder.nbest(bigram_measures.pmi, 20) 
-        print(bigram_measures)
+        finder.nbest(bigram_measures.pmi, 20) # Top collocations
+    
+    def find_tfidf(self):
+        vectorizer = TfidfVectorizer()
+        X = vectorizer.fit_transform(self.sents)
+        print(vectorizer.get_feature_names())
+        print(X.shape)
+        print(X.toarray())
 
+        
     
 
 class TrigramModel(NgramModel):
@@ -108,23 +124,24 @@ class Lab1(LabPredictor):
         """
         # TODO: filters here
         stopwords = nltk.corpus.stopwords.words('english')
-        filtered = []
+        tnzedfiltered = []
         for s in nltk.sents(text):
             for w in s:
-                if(w.isalpha() and s not in stopwords):
-                    filtered.append(w.lower())
+                w.lower()
+                if(w.isalpha() and s not in stopwords and len(w) > 2): #filtering with stopwords and length of word > 2 
+                    tnzedfiltered.append(w.lower())
         # TODO: tokenize the preprocessed text
-        return nltk.word_tokenize(filtered)
+        return tnzedfiltered # tokenized text
 
     def predict(self, input_text):
         if not bool(input_text):  # if there's no input...
             print("No input, using start words")
             return self.start_words
 
-        tokens = self.preprocess(input_text)
-
         # make use of the backoff model (e.g. bigram)
         too_few = len(input_text) < 3  # TODO: check if the input is too short for trigrams
+        
+        tokens = self.preprocess(input_text)
 
         # select the correct model based on the condition
         model = self.backoff_model if too_few else self.model
@@ -138,6 +155,8 @@ class Lab1(LabPredictor):
         add parameters as you like, such as the corpora you selected.
         """
         print("Training models...")
-        self.predict(self.corpora.words("chesterton-brown.txt"))
+
+
         self.model = TrigramModel(self.corpora)  # TODO: add needed parameters
         self.backoff_model = BigramModel(self.corpora)  # TODO: add needed parameters
+
