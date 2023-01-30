@@ -39,10 +39,9 @@ class NgramModel():
         """
         print(f"Loading {n_gram}-gram model...")
         self.n_gram = n_gram
-        self.words_to_return = 7  # how many words to show in the UI
-        self.tokens = None
+        self.words_to_return = 4  # how many words to show in the UI
 
-        self.model = BigramModel  # TODO: implement the model using built-in NLTK methods
+        self.model = None  # TODO: implement the model using built-in NLTK methods
         # take a look at the nltk.collocations module
         # https://www.nltk.org/howto/collocations.html
 
@@ -58,9 +57,10 @@ class NgramModel():
         # we're only interested in the last n-1 words.
         # e.g. for a bigram model,
         # we're only interested in the last word to predict the next
-        self.tokens = tokens
-        n_tokens = tokens[-(self.n_gram - 1):]
+        print(str(tokens) + " predikttokensbefore")
+        tokens = tokens[-(self.n_gram - 1):]
 
+        print(str(tokens) + " predikttokensafter")
 
         probabilities = [] # TODO: find the probabilities for the next word(s)
 
@@ -68,8 +68,11 @@ class NgramModel():
         # TODO: apply some filtering to only select the words
         # here you're free to select your filtering methods
         # a simple approach is to simply sort them by probability
-
-        best_matches = self.model.suggest_next_word(self) # TODO: sort/filter to your liking
+        if_trigram = self.model == TrigramModel
+        if(if_trigram):
+            best_matches = self.model.suggest_next_word_trigram(self, tokens)
+        else:
+            best_matches = self.model.suggest_next_word_bigram(self, tokens) # TODO: sort/filter to your liking
 
         # then return as many words as you've defined above
         return best_matches[:self.words_to_return]
@@ -78,6 +81,7 @@ class NgramModel():
 class BigramModel(NgramModel):
     def __init__(self, corpus) -> None:
         super().__init__(n_gram=2)
+        self.model = BigramModel
         self.corpus = corpus
         self.bigrams = self.create_bigrams(corpus)
         self.bigram_counts = nltk.FreqDist(self.bigrams) # TODO: create a bigram count dictionary from the corpus
@@ -91,18 +95,12 @@ class BigramModel(NgramModel):
     
     def get_bigram_count(self, bigram):
         freq = nltk.FreqDist(bigram)
-        for k, v in freq.items():
-            if k == bigram:
-                return int(v)
-        else:
-            return 1
+        return freq
     
-    
-    # Function takes sentence as input and suggests possible words that comes after the sentence  
-    def suggest_next_word(self):
+    # Function takes sentence as input and suggests possible words that comes after the sentence 
+    # Inspiration from https://github.com/oppasource/ycopie/blob/main/N-gram%20Language%20Modeling/N-gram%20Language%20Modeling.ipynb
+    def suggest_next_word_bigram(self, input_):
         # Consider the last bigram of sentence
-        input_ = self.tokens
-        print(input_)
         last_bigram = input_[-1:]
         # Calculating probability for each word in vocab
         vocab_probabilities = {}
@@ -115,7 +113,7 @@ class BigramModel(NgramModel):
             vocab_probabilities[vocab_word] = probability
 
         # Sorting the vocab probability in descending order to get top probable words
-        top_suggestions = sorted(vocab_probabilities.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_suggestions = sorted(vocab_probabilities.items(), key=lambda x: x[1], reverse=True)
         get_words = [word for word, prob in top_suggestions]
         return get_words
         
@@ -127,35 +125,45 @@ class TrigramModel(NgramModel):
 
     def __init__(self, corpus) -> None:
         super().__init__(n_gram=3)
+        self.model = TrigramModel
+        self.corpus = corpus
+        self.trigrams = self.create_trigrams(corpus)
+        self.trigramfreq = self.get_trigram_count(self.trigrams)
+        self.vocab = set(corpus) # TODO: create a vocabulary from the corpus
 
-"""     # Function takes sentence as input and suggests possible words that comes after the sentence  
-    def suggest_next_word(input_, trigram_counts, vocab):
+    def create_trigrams(self, tokens):
+        trigrams = nltk.trigrams(tokens)
+        return trigrams
+    
+    def get_trigram_count(self, trigram: tuple):
+        freq = nltk.FreqDist(trigram)
+        return freq
+
+    def suggest_next_word_trigram(self, input_):
         # Consider the last bigram of sentence
-        tokenized_input = nltk.word_tokenize(input_.lower())
-        last_bigram = tokenized_input[-2:]
-        
+        input_ = [w.lower() for w in input_]
+        last_bigram = input_[-2:]
+        print(str(last_bigram) + "  ")
         # Calculating probability for each word in vocab
         vocab_probabilities = {}
-        for vocab_word in vocab:
+        for vocab_word in self.vocab:
             test_trigram = (last_bigram[0], last_bigram[1], vocab_word)
-            test_bigram = (last_bigram[0], last_bigram[1])
 
-            test_trigram_count = trigramfreq.get(test_trigram, 0)
-            
+            test_trigram_count: tuple = self.trigramfreq.get(test_trigram, 1)
 
-            probability = test_trigram_count
+            probability = test_trigram_count / len(self.vocab)
             vocab_probabilities[vocab_word] = probability
-        
+
         # Sorting the vocab probability in descending order to get top probable words
-        top_suggestions = sorted(vocab_probabilities.items(), key=lambda x: x[1], reverse=True)[:3]
-        return top_suggestions
- """
+        top_suggestions = sorted(vocab_probabilities.items(), key=lambda x: x[1], reverse=True)
+        get_words = [word for word, prob in top_suggestions]
+        return get_words
 
 class Lab1(LabPredictor):
     def __init__(self):
         super().__init__()
         self.unprocessed_corpus = nltk.corpus.gutenberg.words()
-        self.processed = self.preprocess(self.unprocessed_corpus) # TODO: load a corpus from NLTK
+        self.processed = self.preprocess_corpus(self.unprocessed_corpus) # TODO: load a corpus from NLTK
         self.vocab = set(self.unprocessed_corpus)  # TODO: create a vocabulary from the corpus
 
 
@@ -164,7 +172,7 @@ class Lab1(LabPredictor):
         self.start_words = ["the", "a", "an", "this", "that", "these", "those"]
 
     @staticmethod
-    def preprocess(text) -> List[str]:
+    def preprocess_input(text) -> List[str]:
         """
         Preprocess the input text as you see fit, return a list of tokens.
 
@@ -173,17 +181,36 @@ class Lab1(LabPredictor):
         - find inspiration from the course literature :-)
         """
 
-        # TODO: filters here
-        def filter_corpus(text):
-            filteredtext = []
-            stopwords = nltk.corpus.stopwords.words('english')
-            for word in text:
-                if word.isalpha() and word and word not in stopwords and len(word) > 1:
-                    filteredtext.append(word)
-            print(filteredtext[0:100])
-            return filteredtext
+        print(str(text) + " THISIStext")
+        textlist = text
 
-        return filter_corpus(text)
+        print("YESS")
+        print(textlist)
+
+        # TODO: filters here
+        def filter_input(text : List[str]) -> List[str]:
+            text = [w.lower() for w in text]
+            text = [re.sub("[^\w]", ' ', w) for w in text]
+            text = [re.sub(' +', ' ', w) for w in text]
+            return text
+
+        print("YESS2")
+        print(filter_input(textlist))
+
+        return filter_input(textlist)
+
+    def preprocess_corpus(self, corpus : List[str]) -> List[str]:
+
+        def filter_corpus(corpustext):
+                filteredtext = []
+                for word in corpustext:
+                    word = word.lower()
+                    word = re.sub(r'[^\w]', "", word)
+                    if(word):
+                        filteredtext.append(word)
+                return filteredtext
+        
+        return filter_corpus(corpus)
 
 
 
@@ -192,13 +219,14 @@ class Lab1(LabPredictor):
             print("No input, using start words")
             return self.start_words
 
+        input_text = input_text.split()
         # make use of the backoff model (e.g. bigram)
-        too_few = len(input_text) < 3  # TODO: check if the input is too short for trigrams
+        too_few = len(input_text) < 2  # TODO: check if the input is too short for trigrams
         
-        tokens = self.preprocess(input_text)
+        tokens = self.preprocess_input(input_text)
 
         # select the correct model based on the condition
-        model = self.backoff_model 
+        model = self.backoff_model if too_few else self.model
         # if too_few else self.model
         # alternatively, you can switch between the tri- and bigram models
         # based on the output probabilities. This is 100% optional!
@@ -212,3 +240,4 @@ class Lab1(LabPredictor):
         print("Training models...")
 
         self.backoff_model = BigramModel(self.processed)  # TODO: add needed parameters
+        self.model = TrigramModel(self.processed)  # TODO: add needed parameters
