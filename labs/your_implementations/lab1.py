@@ -57,10 +57,7 @@ class NgramModel():
         # we're only interested in the last n-1 words.
         # e.g. for a bigram model,
         # we're only interested in the last word to predict the next
-        print(str(tokens) + " predikttokensbefore")
         tokens = tokens[-(self.n_gram - 1):]
-
-        print(str(tokens) + " predikttokensafter")
 
         probabilities = [] # TODO: find the probabilities for the next word(s)
 
@@ -68,11 +65,8 @@ class NgramModel():
         # TODO: apply some filtering to only select the words
         # here you're free to select your filtering methods
         # a simple approach is to simply sort them by probability
-        if_trigram = self.model == TrigramModel
-        if(if_trigram):
-            best_matches = self.model.suggest_next_word_trigram(self, tokens)
-        else:
-            best_matches = self.model.suggest_next_word_bigram(self, tokens) # TODO: sort/filter to your liking
+
+        best_matches = self.model.suggest_next_word(self, tokens)
 
         # then return as many words as you've defined above
         return best_matches[:self.words_to_return]
@@ -99,7 +93,7 @@ class BigramModel(NgramModel):
     
     # Function takes sentence as input and suggests possible words that comes after the sentence 
     # Inspiration from https://github.com/oppasource/ycopie/blob/main/N-gram%20Language%20Modeling/N-gram%20Language%20Modeling.ipynb
-    def suggest_next_word_bigram(self, input_):
+    def suggest_next_word(self, input_):
         # Consider the last bigram of sentence
         last_bigram = input_[-1:]
         # Calculating probability for each word in vocab
@@ -139,11 +133,10 @@ class TrigramModel(NgramModel):
         freq = nltk.FreqDist(trigram)
         return freq
 
-    def suggest_next_word_trigram(self, input_):
+    def suggest_next_word(self, input_):
         # Consider the last bigram of sentence
         input_ = [w.lower() for w in input_]
         last_bigram = input_[-2:]
-        print(str(last_bigram) + "  ")
         # Calculating probability for each word in vocab
         vocab_probabilities = {}
         for vocab_word in self.vocab:
@@ -181,21 +174,14 @@ class Lab1(LabPredictor):
         - find inspiration from the course literature :-)
         """
 
-        print(str(text) + " THISIStext")
         textlist = text
-
-        print("YESS")
-        print(textlist)
 
         # TODO: filters here
         def filter_input(text : List[str]) -> List[str]:
             text = [w.lower() for w in text]
-            text = [re.sub("[^\w]", ' ', w) for w in text]
+            text = [re.sub("[^\w]", '', w) for w in text]
             text = [re.sub(' +', ' ', w) for w in text]
             return text
-
-        print("YESS2")
-        print(filter_input(textlist))
 
         return filter_input(textlist)
 
@@ -206,6 +192,7 @@ class Lab1(LabPredictor):
                 for word in corpustext:
                     word = word.lower()
                     word = re.sub(r'[^\w]', "", word)
+                    word = re.sub(' +', ' ', w)
                     if(word):
                         filteredtext.append(word)
                 return filteredtext
